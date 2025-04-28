@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI溫暖健康營養App</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --green: #bfe3c1;
+      --beige: #fef9f4;
+      --orange: #f8b26a;
+      --shadow: rgba(0, 0, 0, 0.1);
+      --radius: 20px;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: var(--beige);
+      margin: 0;
+      padding: 0;
+    }
+
+    .page {
+      display: none;
+      max-width: 600px;
+      margin: 30px auto;
+      background: white;
+      border-radius: var(--radius);
+      box-shadow: 0 4px 10px var(--shadow);
+      padding: 20px;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    h2 {
+      text-align: center;
+      color: #444;
+    }
+
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+      color: #333;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 5px;
+      border-radius: var(--radius);
+      border: 1px solid #ccc;
+      font-size: 1em;
+    }
+
+    button {
+      background-color: var(--green);
+      color: #333;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #a3d3a8;
+    }
+
+    .highlight {
+      background-color: var(--orange);
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+    }
+
+    .advice-box {
+      background-color: #f3faf4;
+      padding: 15px;
+      border-radius: var(--radius);
+      box-shadow: 0 2px 6px var(--shadow);
+      margin-top: 20px;
+    }
+
+    .history-box {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #e7f0e7;
+      border-radius: var(--radius);
+      display: none;
+    }
+
+    .chart-box {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page active" id="homePage">
+    <h2>🍀 AI健康營養顧問</h2>
+    <p>歡迎使用本App，請依照下列步驟操作：<br>1. 點選「開始使用」<br>2. 填寫基本健康資料<br>3. 獲得專屬分析報告與飲食建議</p>
+    <button onclick="goToPage('loginPage')">開始使用</button>
+  </div>
+
+  <div class="page" id="loginPage">
+    <h2>會員登入與健康資料</h2>
+    <label>帳號：</label>
+    <input type="text" id="username" required />
+
+    <label>性別：</label>
+    <select id="gender">
+      <option value="male">男性</option>
+      <option value="female">女性</option>
+    </select>
+
+    <label>年齡：</label>
+    <input type="number" id="age" required />
+
+    <label>身高（cm）：</label>
+    <input type="number" id="height" required />
+
+    <label>體重（kg）：</label>
+    <input type="number" id="weight" required />
+
+    <label>健康狀況：</label>
+    <select id="condition">
+      <option value="normal">正常</option>
+      <option value="diabetes">糖尿病</option>
+      <option value="hypertension">高血壓</option>
+      <option value="kidney">腎病</option>
+    </select>
+
+    <label>運動頻率：</label>
+    <select id="activity">
+      <option value="low">低（每週1次以下）</option>
+      <option value="medium">中（每週2~4次）</option>
+      <option value="high">高（每週5次以上）</option>
+    </select>
+
+    <label>睡眠時間（小時）：</label>
+    <input type="number" id="sleep" required />
+
+    <button onclick="submitData()">送出資料</button>
+  </div>
+
+  <div class="page" id="resultPage">
+    <h2>🔍 分析結果</h2>
+    <div class="advice-box" id="adviceContent"></div>
+    <div class="chart-box">
+      <canvas id="nutritionChart"></canvas>
+    </div>
+    <button onclick="playAdvice()">播放語音</button>
+    <button onclick="stopAdvice()">停止播放</button>
+    <button onclick="toggleHistory()">顯示／隱藏歷史</button>
+    <div class="history-box" id="historyContent"></div>
+    <button onclick="goToPage('loginPage')">返回</button>
+  </div>
+
+  <script>
+    let historyData = {};
+    let currentVoice = null;
+
+    function goToPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function submitData() {
+      const user = document.getElementById("username").value.trim().toLowerCase();
+      const gender = document.getElementById("gender").value;
+      const age = parseInt(document.getElementById("age").value);
+      const height = parseFloat(document.getElementById("height").value);
+      const weight = parseFloat(document.getElementById("weight").value);
+      const condition = document.getElementById("condition").value;
+      const activity = document.getElementById("activity").value;
+      const sleep = parseFloat(document.getElementById("sleep").value);
+      const bmi = (weight / Math.pow(height / 100, 2)).toFixed(1);
+
+      let advice = `<strong>BMI值：</strong> ${bmi}<br><ul>`;
+
+      if (bmi >= 25) advice += `<li><span class="highlight">BMI過重</span>，易導致高血壓、糖尿病、心血管疾病。</li>`;
+      else if (bmi < 18.5) advice += `<li><span class="highlight">BMI過輕</span>，可能造成免疫力下降與骨質疏鬆。</li>`;
+      else advice += `<li><span class="highlight">BMI正常</span>，請持續保持健康生活。</li>`;
+
+      advice += `<li><strong>預防建議：</strong>均衡飲食、規律運動、充足睡眠與定期檢查。</li>`;
+
+      if (condition === "diabetes") {
+        advice += `
+          <li>【糖尿病建議】低GI飲食、按時服藥、監測血糖。</li>
+          <li>建議食譜：<br>早餐：地瓜＋水煮蛋<br>午餐：糙米飯＋豆腐＋青菜<br>晚餐：蔬菜湯＋烤雞胸</li>
+          <li>料理步驟：<br>1. 將地瓜蒸熟15分鐘。<br>2. 雞胸使用橄欖油煎熟，搭配胡椒與香草調味。</li>
+        `;
+      } else if (condition === "hypertension") {
+        advice += `
+          <li>【高血壓建議】低鈉飲食、避免加工品、保持體重。</li>
+          <li>建議食譜：<br>早餐：燕麥粥＋香蕉<br>午餐：藜麥＋蒸魚＋菠菜<br>晚餐：地瓜＋白煮蛋＋青花菜</li>
+          <li>料理步驟：<br>1. 蒸魚10分鐘，加入薑絲與少量醬油。<br>2. 煮地瓜飯並佐以清蒸蔬菜。</li>
+        `;
+      } else if (condition === "kidney") {
+        advice += `
+          <li>【腎病建議】限制鉀與磷攝取、減少蛋白質。</li>
+          <li>建議食譜：<br>早餐：白吐司＋橄欖蛋<br>午餐：白飯＋蒸瓜類<br>晚餐：米粥＋清燙青菜</li>
+          <li>料理步驟：<br>1. 蒸南瓜8分鐘，搭配白飯。<br>2. 米粥以低鈉高湯煮30分鐘。</li>
+        `;
+      } else {
+        advice += `
+          <li>整體健康良好，維持均衡生活即可。</li>
+          <li>建議食譜：<br>早餐：優格＋奇異果<br>午餐：地瓜飯＋豆腐炒時蔬<br>晚餐：紫米飯＋烤鮭魚＋青菜</li>
+          <li>料理步驟：<br>1. 鮭魚烤10分鐘，撒上檸檬汁。<br>2. 紫米泡水2小時後蒸煮。</li>
+        `;
+      }
+
+      if (activity === "low") advice += `<li>增加運動：每日快走30分鐘。</li>`;
+      else if (activity === "high") advice += `<li>運動充足，請持續補充水分與蛋白質。</li>`;
+
+      if (sleep < 6) advice += `<li>建議增加睡眠至每晚7~8小時，改善代謝與修復。</li>`;
+      else advice += `<li>睡眠充足，有助健康維持。</li>`;
+
+      advice += `</ul>`;
+
+      document.getElementById("adviceContent").innerHTML = advice;
+      renderNutritionChart();
+      goToPage('resultPage');
+
+      const timestamp = new Date().toLocaleString();
+      if (!historyData[user]) historyData[user] = [];
+      historyData[user].unshift(`<strong>${timestamp}</strong><br>${advice}<hr>`);
+      localStorage.setItem('healthHistory', JSON.stringify(historyData));
+    }
+
+    function renderNutritionChart() {
+      const ctx = document.getElementById('nutritionChart');
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['碳水化合物', '蛋白質', '脂肪'],
+          datasets: [{
+            data: [50, 30, 20],
+            backgroundColor: ['#a3d3a8', '#f8b26a', '#bfe3c1']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            },
+            title: {
+              display: true,
+              text: '營養比例建議圖'
+            }
+          }
+        }
+      });
+    }
+
+    function playAdvice() {
+      const text = document.getElementById("adviceContent").textContent;
+      currentVoice = new SpeechSynthesisUtterance(text);
+      currentVoice.lang = 'zh-TW';
+      speechSynthesis.cancel();
+      speechSynthesis.speak(currentVoice);
+    }
+
+    function stopAdvice() {
+      speechSynthesis.cancel();
+    }
+
+    function toggleHistory() {
+      const user = document.getElementById("username").value.trim().toLowerCase();
+      const box = document.getElementById("historyContent");
+      const stored = JSON.parse(localStorage.getItem('healthHistory'));
+      historyData = stored || {};
+      box.innerHTML = historyData[user]?.join('') || '尚無歷史紀錄';
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    window.onload = () => {
+      const stored = localStorage.getItem('healthHistory');
+      if (stored) historyData = JSON.parse(stored);
+    }
+  </script>
+
+</body>
+</html>
